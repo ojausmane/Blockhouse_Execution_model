@@ -5,7 +5,7 @@ from itertools import product
 import matplotlib.pyplot as plt
 import time
 
-# 
+# ========== CONT-KUKANOV STRATEGY ========== #
 def cont_kukanov_execution(df, order_size, lambda_over, lambda_under, theta_queue, step=100):
     class Venue:
         def __init__(self, ask, ask_size, fee=0.0, rebate=0.0):
@@ -15,6 +15,7 @@ def cont_kukanov_execution(df, order_size, lambda_over, lambda_under, theta_queu
             self.rebate = rebate
 
     def allocate(order_size, venues):
+        # Generate all possible splits using combinatorial approach
         splits = [[]]
         for v in range(len(venues)):
             new_splits = []
@@ -91,6 +92,7 @@ def cont_kukanov_execution(df, order_size, lambda_over, lambda_under, theta_queu
     }
 
 def run_best_ask(df, order_size=5000):
+    # Naive strategy - always take best available price
     remaining = order_size
     cash = 0.0
     points = []
@@ -110,7 +112,7 @@ def run_best_ask(df, order_size=5000):
     return cash, cash / order_size, points
 
 
-# ========== VWAP STRATEGY (Streaming + Impact) ========== #
+# ========== VWAP STRATEGY ========== #
 def run_vwap(df, order_size=5000):
     remaining = order_size
     cash = 0.0
@@ -142,7 +144,7 @@ def run_vwap(df, order_size=5000):
         if total_liquidity == 0:
             continue
 
-        # Update cumulative VWAP with visible data at this tick (up to this point)
+        # Update cumulative VWAP with visible data up to this point
         cumulative_dollar_volume += (prices * sizes).sum()
         cumulative_volume += total_liquidity
 
@@ -172,8 +174,9 @@ def run_vwap(df, order_size=5000):
     avg_price = cash / executed_total if executed_total > 0 else float('nan')
     return cash, avg_price, cumulative_costs
 
-# ========== TWAP STRATEGY (Distributed) ========== #
+# ========== TWAP STRATEGY  ========== #
 def run_twap(df, order_size=5000):
+    # Time-weighted execution - minimizes market impact through regularity
     df = df.copy()
     df['ts'] = pd.to_datetime(df['ts_event'], unit='ns')
     df['bucket'] = ((df['ts'] - df['ts'].min()).dt.total_seconds() // 60).astype(int)
@@ -204,7 +207,10 @@ def run_twap(df, order_size=5000):
                 break
     return cash, cash / order_size, points
 
+# ========== PLOTS CUMULATIVE COST ========== #
 def plot_all_strategies(curves):
+    # Visual comparison of strategy performance
+    # Helps understand execution patterns
     plt.figure(figsize=(12, 6))
     for label, points, color in curves:
         if points:
@@ -220,7 +226,7 @@ def plot_all_strategies(curves):
     plt.close()
     print("Saved plot: results.png")
 
-
+# ========== DUMPS JSON  ========== #
 def format_output(best_params, cont_kuk, best_ask, twap, vwap, runtime):
     savings = {
         "vs_best_ask": (best_ask[1] - cont_kuk['avg_fill_price']) / best_ask[1] * 1e4,
@@ -241,7 +247,7 @@ def format_output(best_params, cont_kuk, best_ask, twap, vwap, runtime):
     }
     print(json.dumps(output, indent=2))
 
-
+# ========== MAIN  ========== #
 if __name__ == '__main__':
     start_time = time.time()
     df = pd.read_csv('/Users/theboss/Library/Mobile Documents/com~apple~CloudDocs/Stevens/Internship Interview Process/Blockhouse/Quant Strategist Intern May 2025/l1_day.csv')
